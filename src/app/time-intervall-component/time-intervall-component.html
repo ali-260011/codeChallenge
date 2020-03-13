@@ -1,13 +1,15 @@
 <div style="display: inline;">
     <label>Start Date:</label>
-    <input type="date" [(ngModel)]="startDate" (change)="checkDateValidation()" placeholder="Start Date" #start/>
+    <input type="date" [(ngModel)]="startDate" (change)="checkDateValidation()" placeholder="Start Date" #start />
     <label>End Date:</label>
-    <input type="date" [(ngModel)]="endDate" (change)="checkDateValidation()" placeholder="End Date" #end/>
+    <input type="date" [(ngModel)]="endDate" (change)="checkDateValidation()" placeholder="End Date" #end />
     <button type="submit" (click)="showResult()"
-    [disabled]="invalidDate || startDate > today || endDate > today || start.value.length === 0 || end.value.length === 0">Show Result</button>
+        [disabled]="invalidDate || start.value > today || end.value > today || start.value.length === 0 || end.value.length === 0">Show
+        Result</button>
 </div>
-<span *ngIf="invalidDate" style="color: red;">The end date should be after the start date</span>
-<span *ngIf="startDate > today || endDate > today" style="color: red;">The latest day can be calculated is today</span>
+<span style="color: red;">{{errorMessage}}</span>
+<span *ngIf="start.value > today || end.value > today" style="color: red;">The latest day can be calculated is
+    today</span>
 
 <br>
 <div *ngIf="responseToDisplay.length > 0">
@@ -33,12 +35,12 @@
                 <td>{{highestDayCount.date | date: 'dd/MM/yyyy'}}</td>
                 <td>{{highestDayCount.comptage}}</td>
             </tr>
-        </table>    
+        </table>
     </div>
-    <p><b>The average of daily counts: </b> {{averageCount}} </p>    
+    <p><b>The average of daily counts: </b> {{averageCount}} </p>
     <p><b>The total of daily counts: </b> {{totalCount}} </p>
 </div>
 
-<div>
-    <canvas #chart width="400" height="400" type="line"></canvas>
+<div style="width: 600px; height: 600px;">
+    <canvas #chart id="chart" width="600" height="600"></canvas>
 </div>

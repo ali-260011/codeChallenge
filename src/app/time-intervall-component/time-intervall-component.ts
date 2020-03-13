@@ -1,12 +1,12 @@
-import { Component, ViewChild } from '@angular/core';
+import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Chart, ChartOptions } from 'chart.js';
-import { GoogleChartComponent } from 'angular-google-charts'
-// import Chart = require('chart.js');
+import { DatePipe } from '@angular/common';
+
 export interface ResponseDto {
-    date: Date;
-    comptage: number;
-    timestamp: number;
+    date?: Date | string;
+    comptage?: number;
+    timestamp?: number;
 }
 
 @Component({
@@ -28,14 +28,12 @@ export class TimeIntervallComponent {
     totalCount: number = 0;
     invalidDate = false;
     options: ChartOptions = {};
-    chartType = 'line';
     chartData: any = [];
+    errorMessage = '';
 
-    @ViewChild('chart') chart: Chart;
-
-    constructor(private httpClient: HttpClient) {
+    constructor(private httpClient: HttpClient, private datePipe: DatePipe) {
     }
-    
+
 
     showResult() {
         const begin = this.parseDate(this.startDate)
@@ -44,90 +42,85 @@ export class TimeIntervallComponent {
             + begin + '&end=' + end + '&step=4';
         const requestUrl = invalidUrl.replace(/"/g, '');
         this.httpClient.get(requestUrl).subscribe((result: ResponseDto[]) => {
-            if (result) {
-            this.responseToDisplay = result;
-            } else {
-                //TODO: corner case where backend returns null.
-                console.log('there are no data found');
-            }
-        },
-            (err) => { console.log('Error occured while loading data') },
-            () => {
+            if (result.length > 0) {
+                this.responseToDisplay = result;
+                this.chartData = [];
                 this.getDayWithLeastCounts(this.responseToDisplay);
                 this.getDayWithHighestCounts(this.responseToDisplay);
                 this.getAverageOfCounts(this.responseToDisplay);
                 this.getTotalCounts(this.responseToDisplay);
+                this.leastDayCount['unique'] = true;
+                this.leastDayCount['label'] = 'Least count';
+                this.highestDayCount['unique'] = true;
+                this.highestDayCount['label'] = 'Highest count';
+                this.responseToDisplay.push(this.convertNumberToObjectToDisplay(this.totalCount, 'Total'));
+                this.responseToDisplay.push(this.convertNumberToObjectToDisplay(this.averageCount, 'Average'));
                 this.options = this.initializeChartOptions();
                 this.chartData = this.initializeChartDatasets(this.responseToDisplay);
                 this.displayLineChart();
-            });
+            } else {
+                //TODO: corner case where backend returns null.
+                this.errorMessage = 'No Data found on this date';
+                console.log('there are no data found');
+            }
+        },
+            (err) => { console.log('Error occured while loading data') },
+            () => { });
+    }
+
+    public convertNumberToObjectToDisplay(number: number, label: string) {
+        return {
+            comptage: number,
+            unique: true,
+            date: Date(),
+            label: label
+        } as ResponseDto;
     }
 
     public displayLineChart() {
-         this.chart.options = this.options;
-         this.chart.data = this.chartData;
+        var ch = new Chart('chart', {
+            type: 'line',
+            data: this.chartData,
+            options: this.options
+        })
     }
 
     public checkDateValidation() {
         if (this.startDate && this.endDate && this.startDate > this.endDate) {
             this.invalidDate = true;
+            this.errorMessage = 'The end date should be after the start date';
         }
         else {
             this.invalidDate = false;
+            this.errorMessage = '';
         }
     }
     public initializeChartDatasets(responseData: ResponseDto[]) {
         return {
-            data: {
-                labels: responseData.map(elem => elem.date.toString()),
-                datasets: [{
-                        label: "One",
-                        fillColor: "rgba(220,220,220,0.2)",
-                        strokeColor: "rgba(220,220,220,1)",
-                        pointColor: "rgba(220,220,220,1)",
-                        pointStrokeColor: "#fff",
-                        pointHighlightFill: "#fff",
-                        pointHighlightStroke: "rgba(220,220,220,1)",
-                        data: responseData.map(elem => elem.comptage)
-                }]
-            }
+            labels: responseData.map(e => {
+                if (e['unique'] && e['label']) {
+                    return this.datePipe.transform(e.date, 'dd-MM-yyyy') + e['label']
+                } else { return this.datePipe.transform(e.date, 'dd-MM-yyyy') }
+            }),
+            datasets: [{
+                data: responseData.map(e => e.comptage),
+                backgroundColor: responseData.map(e => e['unique'] ? 'red' : 'green'),
+                borderColor: 'blue',
+                borderWidth: 1,
+                fill: false
+            }]
         }
     }
 
     public initializeChartOptions(): any {
         return {
+            responsive: true,
             showLines: true,
-            scales: {
-                xAxes: this.initializeXAxis(),
-                yAxes: this.initializeYAxis(),
+            legend: {
+                display: false
             }
         }
-
     }
-    initializeAxes() {
-        this.initializeXAxis();
-        this.initializeYAxis()
-    }
-    initializeXAxis(): any[] {
-        return [{
-            labels: this.responseToDisplay.map(elem => elem.date.toString()),
-            type: 'time',
-                time: {
-                    unit: 'hour'
-                },
-            position: 'bottom',
-            id: 'x-axis'
-        }];
-    }
-
-    initializeYAxis(): any[] {
-        return [{
-            type: 'linear',
-            position: 'left',
-            id: 'y-axis',
-        }]
-    }
-
 
     public getDayWithLeastCounts(data: ResponseDto[]): void {
         this.leastDayCount = data.reduce(function (res, obj) {
